@@ -56,25 +56,28 @@ class PSO(Particle):
         super(PSO, self).__init__(params)
         self.params = params
         self._fitness = EqSystem
-        self.social_cost_ = torch.empty(self.nPop, 1)  
-        self.best_social_cost_ = torch.empty(self.nPop, 1)                                
+        self.social_cost_ = torch.empty(self.nPop, 1)
+        self.cost()
+        self.best_social_cost_ = self.social_cost_                               
         self.global_cost = float('inf')
 
     def cost(self):
         # multitheading
         for i in range(self.nPop):
             self.social_cost_[i] = self._fitness.evaluate(self.position_[i,:])
-        self.cost_update()
 
     def cost_update(self):
         # update social 
         # import pdb; pdb.set_trace() 
-
-        select = self.social_cost_ < self.best_social_cost_
-        self.best_social_cost_[select] = self.social_cost_[select]
-        self.best_social_pos_[select] = self.position_[select]
+        for i in range(self.nPop):
+            if (self.social_cost_[i] < self.best_social_cost_[i]):
+                self.best_social_cost_[i] = self.social_cost_[i]
+                self.best_social_pos_[i,:] = self.position_[i,:]
         # update global
-        lowest_cost = torch.min(self.best_social_cost_)
-        if (best_social_cost_.min() < self.global_cost):
-            self.global_cost = best_social_cost_.min()
+            if (self.best_social_cost_[i] < self.global_cost):
+                self.global_cost = self.best_social_cost_[i]
+                self.best_cognitive_pos_[i,:] = self.best_social_pos_[i,:] 
 
+    def run(self):
+        self.cost()
+        self.cost_update()
