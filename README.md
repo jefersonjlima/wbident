@@ -1,4 +1,2 @@
-# Particle swarm optimization(PSO)
-
-
-
+# PSO Method for WhiteBox Identification System
+ 
