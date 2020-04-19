@@ -1,6 +1,12 @@
 # PSO Method for WhiteBox Identification System
 
 
-## Experiment Description
+## USAGE
 
-![](tests/image/experiment.png)
+```bash
+$ python3 setup.py install
+```
+
+```bash
+$ python3 tests/linearfunction.py
+```

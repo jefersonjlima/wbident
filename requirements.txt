@@ -1,5 +1,2 @@
-torch~=1.4.0
-setuptools~=45.2.0
-matplotlib~=3.2.0rc1
-numpy~=1.18.1
-scipy~=1.4.1
+torch==1.4.0
+numpy==1.18.1
