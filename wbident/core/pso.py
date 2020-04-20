@@ -58,10 +58,12 @@ class PSO(Particle):
         self.p_cost_ = torch.empty(self.nPop, 1)
         self.pb_cost_ = torch.empty(self.nPop, 1)
         self.pbg_cost = torch.empty(1)
+        self.cost_tmp = torch.empty(1)
         self.pso_initializer()
 
     def pso_initializer(self):
         self.pbg_cost = float('inf')
+        self.cost_tmp = self.pbg_cost
         for i in range(self.nPop):
             self.p_cost_[i], self.y_true, self.y_pred = self._fitness.evaluate(self.p_position_[i, :])
             self.pb_position_[i, :] = self.p_position_[i, :]
@@ -72,7 +74,6 @@ class PSO(Particle):
     def update_cost(self):
         for i in range(self.nPop):
             self.p_cost_[i], self.y_true, self.y_pred = self._fitness.evaluate(self.p_position_[i, :])
-            # print(f'{self.p_cost_},{self.pb_cost_},{self.pbg_cost}')
             if self.p_cost_[i] < self.pb_cost_[i]:
                 # update best particle values
                 self.pb_position_[i, :] = self.p_position_[i, :]
@@ -82,6 +83,7 @@ class PSO(Particle):
                 self.pbg_cost = self.pb_cost_[i]
                 self.pbg_position = self.p_position_[i, :]
         self.w *= self.w_damping
+        self.cost_tmp = self.pbg_cost
 
     def run(self):
         self.update_particle()
