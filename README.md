@@ -17,9 +17,9 @@ $ python3 tests/nonlinear_function.py
 ### Example
 A Nonlinear model is described below:
 
-$'\dot{x}_0 = x_1'$
+$`\dot{x}_0 = x_1`$
 
-$'\dot{x}_1 = -2 \omega_n \zeta \delta(x_1)x_1 - \omega_n^2 x_0 + A_1\sin(\omega t)'$
+$`\dot{x}_1 = -2 \omega_n \zeta \delta(x_1)x_1 - \omega_n^2 x_0 + A_1\sin(\omega t)`$
 
 where: 
 
@@ -36,12 +36,7 @@ where:
 and
 
 
-```math
-  \delta(x_1)=\begin{cases}
-    5.0, & \text{if $|x_1|<v_1$}.\\
-    0.5, & \text{otherwise}.
-  \end{cases}
-```
+$`\delta(x_1)=\begin{cases}  5.0, & \text{if $|x_1|<v_1$}.\\   0.5, & \text{otherwise}.\end{cases}`$
 
 Dynamic Model is define by:
 
