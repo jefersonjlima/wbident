@@ -11,26 +11,28 @@ class EqSystem(Model):
     def model(self, t, x):
         def delta(vel):
             if abs(vel) > 0.1:
-                d = 5
+                d = 5.0
             else:
-                d = 1.5
+                d = 0.5
             return d
         k = self.unknown_const
         ks   = k[0]
         c    = k[1]
+        w    = k[2]
         m    = 1
         wn   = np.sqrt(k[0]/m)
         zeta = k[1]/(2*m*wn)
         dx = torch.zeros(len(self.x0),)
         dx[0] = x[1]
-        dx[1] = -2 * zeta * wn * delta(x[1])*x[1] - wn ** 2 * x[0] + np.sin(2*np.pi*0.5*t)
+        dx[1] = -2 * zeta * wn * delta(x[1])*x[1] - wn ** 2 * x[0] + 4*np.sin(2*np.pi*k[2]*t)
         return dx
 
-def suface_plot:
+def suface_plot(params):
     f_fit = EqSystem(params)
+    k = torch.tensor([5.0,5.0,0.1],dtype=torch.float32)
+    f_fit.y = f_fit.simulation(k)
     x = torch.linspace(1, 10,10, dtype=torch.float32)
     y = torch.linspace(1, 10,10, dtype=torch.float32)
- 
     xlen = len(x)
     ylen = len(y)
     xg, yg = np.meshgrid(x, y)
@@ -47,25 +49,26 @@ def suface_plot:
     plt.show()
 
 def main():
-    params = {'optmizer': {'lowBound': [0.5, 0.5],
-                            'upBound': [15, 10],
-                            'maxVelocity': 2, 
-                            'minVelocity': -2,
-                            'nPop': 10,
-                            'nVar': 2,
+    params = {'optmizer': {'lowBound': [0.5, 0.5,0.1],
+                            'upBound': [10, 10, 2],
+                            'maxVelocity': 5, 
+                            'minVelocity': -5,
+                            'nPop': 15,
+                            'nVar': 3,
                             'social_weight': 2,
-                            'cognitive_weight': 1,
+                            'cognitive_weight': 2,
                             'w': 0.9,
+                            'beta': 0.5,
                             'w_damping': 0.99},
-                'dyn_system': {'model_path': 'tests/data.mat',
+                'dyn_system': {'model_path': '',
                                 'x0': [0., 0.],
                                 't': [0,6,1000]
                                 }
                 }
-
+    # suface_plot(params)
     f_fit = EqSystem(params)
-    k = torch.tensor([5.0,5.0],dtype=torch.float32)
-    f_fit.y_true = f_fit.simulation(k)
+    k = torch.tensor([4.5,5.3, 0.5],dtype=torch.float32)
+    f_fit.y = f_fit.simulation(k)
     pso = PSO(f_fit, params)
     cost = []
     position = []
@@ -97,19 +100,22 @@ def main():
         graph_cost.set_title('Error')
 
         func1.cla()
-        func1.plot(pso.y_true[:,0])
-        func1.plot(pso.y_pred[:,0],'--')
-        func1.plot(pso.y_true[:,1])
-        func1.plot(pso.y_pred[:,1],'--')
-        func1.set_ylabel('x_0')
+        func1.plot(pso.y[:,0])
+        func1.plot(pso.pbg_y_hat[:,0],'--')
+        func1.plot(pso.y[:,1])
+        func1.plot(pso.pbg_y_hat[:,1],'--')
+        func1.legend(['y0','y0_hat','y1','y1_hat'])
 
         func2.cla()
-        func2.plot(pso.y_true[:,0],pso.y_true[:,1])
-        func2.plot(pso.y_pred[:,0], pso.y_pred[:,1],'--')
-        func2.set_ylabel('x_1')
+        func2.plot(pso.y[:,0],pso.y[:,1])
+        func2.plot(pso.pbg_y_hat[:,0], pso.pbg_y_hat[:,1],'--')
+        func2.legend(['y','y_hat'])
+        func2.set_xlabel('y')
+        func2.set_ylabel('dot_y')
 
         plt.draw()
         plt.pause(0.01)
+        plt.savefig('temp/animation_'+str(i)+'.png')
         pso.run()
 
 if __name__ == "__main__":

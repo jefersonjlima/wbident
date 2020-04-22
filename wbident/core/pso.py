@@ -12,6 +12,8 @@ class Particle:
         self.w_damping = self._params['w_damping']
         self.minVelocity = self._params['minVelocity']
         self.maxVelocity = self._params['maxVelocity']
+        self.beta = self._params['beta']
+
         self.lowBound = torch.empty(self.nPop, self.nVar)
         self.upBound = torch.empty(self.nPop, self.nVar)
         self.p_position_ = torch.empty(self.nPop, self.nVar)
@@ -44,7 +46,7 @@ class Particle:
                  + self.social_weight * torch.rand(self.nPop,  self.nVar) * (self.pbg_position - self.p_position_)
         self.p_velocity_ = self.limits(up_vel, state='velocity')
         # update position
-        up_pos = self.p_position_ + self.p_velocity_
+        up_pos = self.p_position_ + self.beta*self.p_velocity_
         self.p_position_ = self.limits(up_pos, state='position')
 
 
@@ -65,15 +67,16 @@ class PSO(Particle):
         self.pbg_cost = float('inf')
         self.cost_tmp = self.pbg_cost
         for i in range(self.nPop):
-            self.p_cost_[i], self.y_true, self.y_pred = self._fitness.evaluate(self.p_position_[i, :])
+            self.p_cost_[i], self.y, self.y_hat = self._fitness.evaluate(self.p_position_[i, :])
             self.pb_position_[i, :] = self.p_position_[i, :]
             self.pb_cost_[i] = self.p_cost_[i]
-        # self.pbg_cost = self.pb_cost_.min()
         self.pbg_position = self.pb_position_[self.pb_cost_.argmin(), :]
+        self.pbg_y_hat = self.y_hat
+
 
     def update_cost(self):
         for i in range(self.nPop):
-            self.p_cost_[i], self.y_true, self.y_pred = self._fitness.evaluate(self.p_position_[i, :])
+            self.p_cost_[i], self.y, self.y_hat = self._fitness.evaluate(self.p_position_[i, :])
             if self.p_cost_[i] < self.pb_cost_[i]:
                 # update best particle values
                 self.pb_position_[i, :] = self.p_position_[i, :]
@@ -82,6 +85,7 @@ class PSO(Particle):
             if self.pb_cost_[i] < self.pbg_cost:
                 self.pbg_cost = self.pb_cost_[i]
                 self.pbg_position = self.p_position_[i, :]
+                self.pbg_y_hat = self.y_hat
         self.w *= self.w_damping
         self.cost_tmp = self.pbg_cost
 

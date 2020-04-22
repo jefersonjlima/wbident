@@ -35,9 +35,9 @@ class Model:
         
     def evaluate(self, k):
         self.unknown_const = k
-        y_pred = self.ode45(self.model, self.t, self.x0)
-        mse = (self.y_true-y_pred).pow(2).mean()
-        return mse, self.y_true, y_pred
+        y_hat = self.ode45(self.model, self.t, self.x0)
+        mse = (self.y-y_hat).pow(2).mean()
+        return mse, self.y, y_hat
 
     def ode45(self, f, t, x0, *args):
         """
