@@ -11,9 +11,9 @@ class EqSystem(Model):
     def model(self, t, x):
         def delta(vel):
             if abs(vel) > 0.1:
-                d = 5.0
-            else:
                 d = 0.5
+            else:
+                d = 12.5
             return d
         k = self.unknown_const
         ks   = k[0]
@@ -58,7 +58,7 @@ def main():
                             'social_weight': 2,
                             'cognitive_weight': 2,
                             'w': 0.9,
-                            'beta': 0.5,
+                            'beta': 0.1,
                             'w_damping': 0.99},
                 'dyn_system': {'model_path': '',
                                 'x0': [0., 0.],
