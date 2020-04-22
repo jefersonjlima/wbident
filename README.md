@@ -17,10 +17,10 @@ $ python3 tests/nonlinear_function.py
 ### Example
 A Nonlinear model is described below:
 
-```math \dot{x}_0 = x_1
-```
-```math \dot{x}_1 = -2 \omega_n \zeta \delta(x_1)x_1 - \omega_n^2 x_0 + A_1\sin(\omega t)
-```
+$'\dot{x}_0 = x_1'$
+
+$'\dot{x}_1 = -2 \omega_n \zeta \delta(x_1)x_1 - \omega_n^2 x_0 + A_1\sin(\omega t)'$
+
 where: 
 
 |symbol| description| value|
