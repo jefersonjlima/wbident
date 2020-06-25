@@ -7,11 +7,12 @@ This repository contains the source code of WhiteBox Identification System
 ## USAGE
 
 ```bash
-$ python3 setup.py install
+# make install 
 ```
+next 
 
 ```bash
-$ python3 tests/nonlinear_function.py
+$(venv)$ python3 nonlinear_function.py
 ```
 
 ### Example
