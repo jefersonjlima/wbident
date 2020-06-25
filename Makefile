@@ -1,4 +1,4 @@
-.PHONY: help prepare-dev test lint run clean docker
+.PHONY: help install test lint run clean docker
 
 VENV_NAME?=venv
 VENV_ACTIVATE=. $(VENV_NAME)/bin/activate
@@ -6,14 +6,14 @@ PYTHON=${VENV_NAME}/bin/python3
 
 .DEFAULT: help
 help:
-	@echo "make prepare-dev"
+	@echo "make install"
 	@echo "       prepare development environment"
 	@echo "make test"
 	@echo "       run tests"
 	@echo "make lint"
 	@echo "       run pylint and mypy"
 
-prepare-dev:
+install:
 	apt-get -y install python3 python3-pip python3-tk
 	python3 -m pip install virtualenv
 	make venv
@@ -32,6 +32,8 @@ lint: venv
 	${PYTHON} -m pylint
 	${PYTHON} -m mypy --ignore-missing-imports quore
 
-clean:
-	@rm -rf $(VENV_NAME) *.eggs *.egg-info .cache .mypy_cache/ .pytest_cache/ ecg_api.log
+clean-all:
+	@rm -rf $(VENV_NAME) *.eggs *.egg-info .cache .mypy_cache/ .pytest_cache/
 
+clean-temp-files:
+	@rm -rf  *.eggs *.egg-info .cache .mypy_cache/ .pytest_cache/
