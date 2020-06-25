@@ -11,9 +11,9 @@ class EqSystem(Model):
     def model(self, t, x):
         def delta(vel):
             if abs(vel) > 0.1:
-                d = 0.5
+                d = 5.0
             else:
-                d = 12.5
+                d = 0.5
             return d
         k = self.unknown_const
         ks   = k[0]
@@ -115,7 +115,6 @@ def main():
 
         plt.draw()
         plt.pause(0.01)
-        plt.savefig('temp/animation_'+str(i)+'.png')
         pso.run()
 
 if __name__ == "__main__":
