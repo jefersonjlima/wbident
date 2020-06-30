@@ -10,5 +10,6 @@ venv/
 dist/
 build/
 .vscode/
+data/
 venv/
 temp/

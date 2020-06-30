@@ -17,6 +17,7 @@ class Model:
         self._params = self._params['dyn_system']
         self._path = self._params['model_path']
         self.x0 = torch.tensor(self._params['x0'])
+        self.u = self._params['external']
         t = self._params['t']
         t = torch.linspace(t[0], t[1], t[2])
         self.t = t.reshape(-1,1)
@@ -31,11 +32,11 @@ class Model:
 
     def simulation(self, k):
         self.unknown_const = k
-        return self.ode45(self.model, self.t, self.x0)
+        return self.ode45(self.model, self.t, self.x0, self.u)
         
     def evaluate(self, k):
         self.unknown_const = k
-        y_hat = self.ode45(self.model, self.t, self.x0)
+        y_hat = self.ode45(self.model, self.t, self.x0,self.u)
         mse = (self.y-y_hat).pow(2).mean()
         return mse, self.y, y_hat
 
@@ -56,5 +57,6 @@ class Model:
         x[0,:] = x0
         for i in range(n - 1):
             dt = t[i + 1] - t[i]
-            x[i + 1,:] = ode45_step(f, x[i,:],  t[i], dt, *args)
+            u = args[0][i,:]
+            x[i + 1,:] = ode45_step(f, x[i,:],  t[i], dt, u)
         return x
