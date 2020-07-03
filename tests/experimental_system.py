@@ -9,95 +9,87 @@ class EqSystem(Model):
         super(EqSystem, self).__init__(params)
         self._params = params
 
-    def model(self, t, x, *args):
-        Patm = 0                          # Pressão atmosférica
-        Ps   = 6e5 + Patm                   # Pressão suprimento
+    def model(self, t, y, *args):
+        Patm = 1e5                          # Pressão atmosférica
+        Ps   = 3e5 + Patm                   # Pressão suprimento
         M = 1.323+0.146                     # Massa Total
-        A = 4.9e-4                          # Área do êmbolo
-        A1 = 0                              # Área haste ?
-        Ao = 0.001                          # Área Orifício
-        Vu0 = 2.5e-4                        # Volume morto da Câmara A
-        Vb0 = 2.5e-4                        # Volume morto da Câmara B
+        A1 = 0.025                         # Área do êmbolo
+        A2 = 0.01                          
+        A3 = A1 - A2
+        Ao = 0.001                           # Área Orifício
+        Vb0 = 0.056                         # Volume morto da Câmara A
+        Va0 = 0.144                         # Volume morto da Câmara B
         R = 287                             # Constante universal dos gases
         T = 293                             # Temperatura do ar de suprimento
-        L = 0.2                               # Curso útil do cilindro
-        kv = 90                             # Coeficiente de atrito viscoso
+        L = 0.2                             # Curso útil do cilindro
+        kv = 90                            # Coeficiente de atrito viscoso
         gamma = 1.4                         # Relação entre os calores específicos do ar
-        g    = 9.8                          # Força Gravitacional
+        g = 9.8                             # Força Gravitacional
 
-        '''
-        - 25mm - embolo diamentro
-        - 10mm - haste diametro
-
-        estados
-            x0 = posição
-            x1 = velocidade
-            x2 = Pressão em U - Pa ou Pda (montante)
-            x3 = Pressão em B - Pb ou Pda (montante)
-        
-            Ps   - Source Pressure
-            Patm - Atmosphere Pressure
-            Pu   - Upper Chamber Pressure
-            Pb   - Bottom Chamber Pressure
-            Pc   - Chamber Pressure
-
-        '''
         u = args[0][0]
+
         k = self.unknown_const
-        # Mass Flow equation
-        def dm(Ao,Ps,Pc,gamma,R,T):
 
-            # debug
-            print(f't:{t.item()} \t x:{x.numpy()} \t\t\t u: {u}')
-
-            if Ps >= Pc:
-                P1 = Ps
-                P2 = Pc
+        def Psi(sigma):
+            if sigma >= 0.528 and sigma <= 1:
+                psi = 2 * 0.259 * np.sqrt(sigma*(1-sigma))
+            elif sigma < 0.528 and sigma > 0:
+                psi = 0.259
             else:
-                P1 = Pc
-                P2 = Ps
-
-            if P1 == 0:
+                print('Error')
                 psi = 0
-            elif P2/P1 > 0.528:     # subsonic flow
-                psi = np.sqrt(gamma/(gamma-1)*(
-                        (P2/P1)**(2/gamma) - (P2/P1)**((gamma+1)/gamma) 
-                        )
-                )
-            else:                   # cloked flow
-                psi = (2./(gamma+1)**(1/(gamma-1))) * np.sqrt(
-                    gamma/(gamma+1)
-                )
+            return psi
 
-            dot_m = Ao*psi*P1*np.sqrt(2./(R*T))
-            return dot_m
+        # Dynamic Model Valvule 1
+        def dm1(Ao, Pc):
+            if Pc <= Ps:
+                # charging
+                sigma = Pc/Ps
+                dm =   Ao*Ps*np.sqrt( 2*gamma / (R*T*(gamma-1))) * Psi(sigma)
+            else:
+                # discharging
+                sigma = Ps/Pc
+                dm = - Ao*Pc*np.sqrt( 2*gamma / (R*T*(gamma-1))) * Psi(sigma)
+            return dm
 
-        dx = torch.zeros(len(self.x0),)
-        # state space
-        # mudar dy
-        dx[0] = x[1]
-        dx[1] = ((A*x[2] - kv*x[1])/M)-g
-        dx[2] = 1/(Vb0+A*x[0])*(-A*gamma*x[1]*x[2]     + R*gamma*T*dm(Ao, (Ps*u+Patm),  x[2].item(), gamma, R, T))
-        dx[3] = 1/(Vu0+A*(L-x[0]))*( A*gamma*x[1]*x[3] - R*gamma*T*dm(Ao, Patm,   x[3].item(), gamma, R, T))
+        # Dynamic Model Valvule 2
+        def dm2(Ao, Pc):
+            if Pc <= Patm:
+                # charging
+                sigma = Pc/Patm
+                dm =   Ao*Patm*np.sqrt( 2*gamma / (R*T*(gamma-1))) * Psi(sigma)
+            else:
+                # discharging
+                sigma = Patm/Pc
+                dm = - Ao*Pc*np.sqrt( 2*gamma / (R*T*(gamma-1))) * Psi(sigma)
+            return dm
+        
+        dy = torch.zeros(len(self.x0),)
+        dy[0] = y[1]
+        dy[1] = ( y[2]*A1 - y[3]*A2 - Patm*A3 - kv*y[1] )/M -g
+        dy[2] = 1/(Va0 + A1*(0.5*L + y[0]))*(R*T*dm1(Ao*(u), y[2])  + R*T*dm2(Ao*(1-u), y[2]) - y[2]*y[1]*A1)
+        dy[3] = 1/(Vb0 + A2*(0.5*L - y[0]))*(R*T*dm1(Ao*(0), y[3])  + R*T*dm2(Ao*(1), y[3])   + y[3]*y[1]*A2)
+        return dy
 
-        return dx
-# rever L relacao deslocamento em dx3
 
 def main():
     # load data
     data = loadmat('./data/teste0902_02.mat')
     y0 = data['desl']/1000
     u = data['atuador']
-    Patm = 0
-    pu = data['press'] * 1e5 + Patm
+    pu = data['press'] * 1e5 + 1e5
     t = data['t'].reshape(-1,1)
     ts = (t[1]-t[0])[0]
     fs = 1/(ts)
     fs = int(fs)
     del data
 
-    params = {'optmizer': {'lowBound': [0.5, 0.5,0.1],
-                            'upBound': [10, 10, 2],
+    params = {'optmizer': {'lowBound': [0.5,
+                                        0.5,
+                                        0.1],
+                            'upBound': [10,
+                                        10,
+                                        2],
                             'maxVelocity': 5, 
                             'minVelocity': -5,
                             'nPop': 1,
@@ -110,17 +102,29 @@ def main():
                 'dyn_system': {'model_path': '',
                                 'external': u,
                                 'state_mask' : [1., 0., 1., 0],
-                                'x0': [0, 
+                                'x0':  [0, 
                                        0,
-                                       pu[0,0],
-                                       Patm],
+                                       1e5,
+                                       1e5],
                                 't': [0,10-ts,len(t)],
                                 }
                 }
 
     f_fit = EqSystem(params)
     k = torch.tensor([5.0,5.0,0.1],dtype=torch.float32)
-    test  =  f_fit.simulation(k)
+    f_fit.y = f_fit.simulation(k)
+    plt.subplot(4,1,1)
+    plt.plot(f_fit.y[:-1,0])
+    
+    plt.subplot(4,1,2)
+    plt.plot(f_fit.y[:-1,1])
+    
+    plt.subplot(4,1,3)
+    plt.plot(f_fit.y[:-1,2])
+    plt.subplot(4,1,4)
+    plt.plot(f_fit.y[:-1,3])
+    plt.show()
+    return 0
 
     # experimental values
     zero_vec =  np.zeros((len(t),1))
