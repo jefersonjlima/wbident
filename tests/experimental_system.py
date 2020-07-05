@@ -11,18 +11,18 @@ class EqSystem(Model):
 
     def model(self, t, y, *args):
         Patm = 1e5                          # Pressão atmosférica
-        Ps   = 3e5 + Patm                   # Pressão suprimento
+        Ps   = 2e5 + Patm                   # Pressão suprimento
         M = 1.323+0.146                     # Massa Total
         A1 = 0.025                         # Área do êmbolo
-        A2 = 0.01                          
+        A2 = 0.005                          
         A3 = A1 - A2
-        Ao = 0.001                           # Área Orifício
+        Ao = 0.01                         # Área Orifício
         Vb0 = 0.056                         # Volume morto da Câmara A
         Va0 = 0.144                         # Volume morto da Câmara B
         R = 287                             # Constante universal dos gases
         T = 293                             # Temperatura do ar de suprimento
-        L = 0.2                             # Curso útil do cilindro
-        kv = 90                            # Coeficiente de atrito viscoso
+        L = 0.125                             # Curso útil do cilindro
+        kv = 10                              # Coeficiente de atrito viscoso
         gamma = 1.4                         # Relação entre os calores específicos do ar
         g = 9.8                             # Força Gravitacional
 
@@ -37,7 +37,7 @@ class EqSystem(Model):
                 psi = 0.259
             else:
                 print('Error')
-                psi = 0
+                psi = 0.259
             return psi
 
         # Dynamic Model Valvule 1
@@ -65,10 +65,29 @@ class EqSystem(Model):
             return dm
         
         dy = torch.zeros(len(self.x0),)
+        debug_msg = ''
+
+        # Contact Force
+        def Fc(pos, vel):
+            if (0.5*L + y[0]) > L:
+                force = 1e6 * (L - (0.5*L + y[0]) ) - 1e3 * vel
+            elif (0.5*L - y[0]) > L:
+                force = - 1e6 * ( L - (0.5*L - y[0]) )  - 1e3 * vel
+            else:
+                force = 0
+            return f
+
         dy[0] = y[1]
-        dy[1] = ( y[2]*A1 - y[3]*A2 - Patm*A3 - kv*y[1] )/M -g
+        dy[1] = ( y[2]*A1 - y[3]*A2 - Patm*A3 - kv*y[1] + Fc(y[0], y[1]))/M -g
         dy[2] = 1/(Va0 + A1*(0.5*L + y[0]))*(R*T*dm1(Ao*(u), y[2])  + R*T*dm2(Ao*(1-u), y[2]) - y[2]*y[1]*A1)
         dy[3] = 1/(Vb0 + A2*(0.5*L - y[0]))*(R*T*dm1(Ao*(0), y[3])  + R*T*dm2(Ao*(1), y[3])   + y[3]*y[1]*A2)
+        
+        # debug
+        print(' {:0.2f}  {:0.2f} \t {:0.2f} \t {:0.2f} \t {:0.2f} \t {}'.format(t[0],
+                                                                            y.numpy()[0],
+                                                                            y.numpy()[1],
+                                                                            y.numpy()[2],
+                                                                            y.numpy()[3]))
         return dy
 
 
