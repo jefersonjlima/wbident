@@ -18,9 +18,12 @@ class Model:
         self._path = self._params['model_path']
         self.x0 = torch.tensor(self._params['x0'])
         self.u = self._params['external']
+        self.state_mask = self._params['state_mask']
         t = self._params['t']
         t = torch.linspace(t[0], t[1], t[2])
         self.t = t.reshape(-1,1)
+        if self.u is None:
+            self.u = torch.zeros((self.t.shape[0], 1))
 
     @property
     def unknown_const(self):
@@ -37,7 +40,7 @@ class Model:
     def evaluate(self, k):
         self.unknown_const = k
         y_hat = self.ode45(self.model, self.t, self.x0,self.u)
-        mse = (self.y-y_hat).pow(2).mean()
+        mse = (self.y[:, self.state_mask]-y_hat[:,self.state_mask]).pow(2).mean()
         return mse, self.y, y_hat
 
     def ode45(self, f, t, x0, *args):

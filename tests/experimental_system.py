@@ -11,143 +11,146 @@ class EqSystem(Model):
 
     def model(self, t, y, *args):
         Patm = 1e5                          # Pressão atmosférica
-        Ps   = 2e5 + Patm                   # Pressão suprimento
+        Ps   = 5e5 + Patm                   # Pressão suprimento
         M = 1.323+0.146                     # Massa Total
-        A1 = 0.025                         # Área do êmbolo
-        A2 = 0.005                          
-        A3 = A1 - A2
-        Ao = 0.01                         # Área Orifício
+        d1 = 0.025
+        d2 = 0.005
+        A1 = np.pi * (d1/2)**2              # Área do êmbolo
+        A2 = np.pi * (d2/2)**2                         
+        A2 = A2 - A1 
+        Ao = A1*2                           # Área Orifício
         Vb0 = 0.056                         # Volume morto da Câmara A
         Va0 = 0.144                         # Volume morto da Câmara B
         R = 287                             # Constante universal dos gases
         T = 293                             # Temperatura do ar de suprimento
-        L = 0.125                             # Curso útil do cilindro
-        kv = 10                              # Coeficiente de atrito viscoso
+        L = 0.125                           # Curso útil do cilindro
+        kv = 410                            # Coeficiente de atrito viscoso
         gamma = 1.4                         # Relação entre os calores específicos do ar
         g = 9.8                             # Força Gravitacional
 
         u = args[0][0]
 
         k = self.unknown_const
+        # # rewrite unknown variables
+        kv =    k[0]
+        Ps =    k[1]
+        Ao =    k[2]
+
 
         def Psi(sigma):
-            if sigma >= 0.528 and sigma <= 1:
-                psi = 2 * 0.259 * np.sqrt(sigma*(1-sigma))
-            elif sigma < 0.528 and sigma > 0:
-                psi = 0.259
+            if sigma > 0.528:
+                # subsonic flow
+#                 psi = np.sqrt( gamma/(gamma-1) * ((sigma)**(2/gamma) - (sigma)**((gamma+1)/gamma)) )
+                psi = (2/(gamma+1) )**(1/(gamma-1)) * np.sqrt(gamma/(gamma+1))
             else:
-                print('Error')
-                psi = 0.259
+                # chocked flow
+                        psi = (2/(gamma+1) )**(1/(gamma-1)) * np.sqrt(gamma/(gamma+1))
             return psi
 
-        # Dynamic Model Valvule 1
         def dm1(Ao, Pc):
-            if Pc <= Ps:
+            if Pc < Ps:
                 # charging
                 sigma = Pc/Ps
                 dm =   Ao*Ps*np.sqrt( 2*gamma / (R*T*(gamma-1))) * Psi(sigma)
-            else:
+            elif Pc > Ps:
                 # discharging
                 sigma = Ps/Pc
                 dm = - Ao*Pc*np.sqrt( 2*gamma / (R*T*(gamma-1))) * Psi(sigma)
+            else:
+                dm = 0
             return dm
 
-        # Dynamic Model Valvule 2
+        # Dynamic Model relief valve
         def dm2(Ao, Pc):
-            if Pc <= Patm:
+            if Pc < Patm:
                 # charging
                 sigma = Pc/Patm
                 dm =   Ao*Patm*np.sqrt( 2*gamma / (R*T*(gamma-1))) * Psi(sigma)
-            else:
+            elif Pc > Patm:
                 # discharging
                 sigma = Patm/Pc
-                dm = - Ao*Pc*np.sqrt( 2*gamma / (R*T*(gamma-1))) * Psi(sigma)
+                dm = - Ao*Pc*np.sqrt(   2*gamma / (R*T*(gamma-1))) * Psi(sigma)
+            else:
+                dm = 0
             return dm
         
         dy = torch.zeros(len(self.x0),)
-        debug_msg = ''
-
-        # Contact Force
-        def Fc(pos, vel):
-            if (0.5*L + y[0]) > L:
-                force = 1e6 * (L - (0.5*L + y[0]) ) - 1e3 * vel
-            elif (0.5*L - y[0]) > L:
-                force = - 1e6 * ( L - (0.5*L - y[0]) )  - 1e3 * vel
-            else:
-                force = 0
-            return f
 
         dy[0] = y[1]
-        dy[1] = ( y[2]*A1 - y[3]*A2 - Patm*A3 - kv*y[1] + Fc(y[0], y[1]))/M -g
-        dy[2] = 1/(Va0 + A1*(0.5*L + y[0]))*(R*T*dm1(Ao*(u), y[2])  + R*T*dm2(Ao*(1-u), y[2]) - y[2]*y[1]*A1)
-        dy[3] = 1/(Vb0 + A2*(0.5*L - y[0]))*(R*T*dm1(Ao*(0), y[3])  + R*T*dm2(Ao*(1), y[3])   + y[3]*y[1]*A2)
-        
-        # debug
-        print(' {:0.2f}  {:0.2f} \t {:0.2f} \t {:0.2f} \t {:0.2f} \t {}'.format(t[0],
-                                                                            y.numpy()[0],
-                                                                            y.numpy()[1],
-                                                                            y.numpy()[2],
-                                                                            y.numpy()[3]))
+        dy[1] = ( (y[2]*A1+y[3]*A2)  - kv*y[1] )/M -g
+        # dy[1] = ( Ps*u*A1  - kv*y[1] + Fc(y[0], y[1]))/M -g        
+        x_a = 0.5*L + y[0]
+        VA = Va0 + A1*(x_a)
+        if VA < Va0:
+            VA = Va0
+        # connect to    [Supply            ]   [Atm                  ]
+        dy[2] = 1/(VA)*(R*T*dm1(Ao*(u), y[2]) + R*T*dm2(Ao*(1-u), y[2]) - y[2]*y[1]*A1)
+        x_b = 0.5*L - y[0]
+        VB = Vb0 + A2*(x_b)
+        if VB < Vb0:
+            VB = Vb0   
+        # connect to    [Supply            ]   [Atm                ]
+        dy[3] = 1/(VB)*(R*T*dm1(Ao*(0), y[3]) + R*T*dm2(Ao*(0   ), y[3]) + y[3]*y[1]*A2)
         return dy
 
-
 def main():
+    def v2Pascal(value):
+        Patm = 1e5
+        gainV2P = 1000e3/10
+        value = value * gainV2P + Patm
+        return value 
     # load data
     data = loadmat('./data/teste0902_02.mat')
-    y0 = data['desl']/1000
-    u = data['atuador']
-    pu = data['press'] * 1e5 + 1e5
+    sample_select = 0.3
     t = data['t'].reshape(-1,1)
+    t_len = len(t)
+    N = int( t_len * sample_select)
+    y0 = - 0.125/2 + data['desl']/1000
+    y0 = y0[:N,:]
+    u = data['atuador']
+    u = u[:N,:]
+    pa = v2Pascal(data['press']) 
+    pa = pa[:N,:] 
+    t = t[:N,:]
     ts = (t[1]-t[0])[0]
     fs = 1/(ts)
     fs = int(fs)
     del data
 
-    params = {'optmizer': {'lowBound': [0.5,
-                                        0.5,
+        # kv =    k[0]
+        # Ao =    k[1]
+        # Ps =    k[2]
+
+    params = {'optmizer': {'lowBound': [100.0,
+                                        1e5,
+                                        0.001],
+                            'upBound': [1000,
+                                        7e5,
                                         0.1],
-                            'upBound': [10,
-                                        10,
-                                        2],
-                            'maxVelocity': 5, 
-                            'minVelocity': -5,
-                            'nPop': 1,
+                            'maxVelocity':  100, 
+                            'minVelocity': -100,
+                            'nPop': 5,
                             'nVar': 3,
                             'social_weight': 2,
                             'cognitive_weight': 2,
                             'w': 0.9,
-                            'beta': 0.1,
+                            'beta': 1,
                             'w_damping': 0.99},
                 'dyn_system': {'model_path': '',
                                 'external': u,
-                                'state_mask' : [1., 0., 1., 0],
-                                'x0':  [0, 
-                                       0,
-                                       1e5,
-                                       1e5],
+                                'state_mask' : [True, False, False, False],
+                                'x0':  [y0[0,0], 
+                                       (y0[1,0]-y0[0,0])/ts,
+                                       pa[0,0],
+                                       pa[0,0]],
                                 't': [0,10-ts,len(t)],
                                 }
                 }
 
     f_fit = EqSystem(params)
-    k = torch.tensor([5.0,5.0,0.1],dtype=torch.float32)
-    f_fit.y = f_fit.simulation(k)
-    plt.subplot(4,1,1)
-    plt.plot(f_fit.y[:-1,0])
-    
-    plt.subplot(4,1,2)
-    plt.plot(f_fit.y[:-1,1])
-    
-    plt.subplot(4,1,3)
-    plt.plot(f_fit.y[:-1,2])
-    plt.subplot(4,1,4)
-    plt.plot(f_fit.y[:-1,3])
-    plt.show()
-    return 0
-
     # experimental values
     zero_vec =  np.zeros((len(t),1))
-    exp_values = np.hstack((y0,zero_vec ,pu, zero_vec))
+    exp_values = np.hstack((y0,zero_vec ,pa, zero_vec))
     f_fit.y = torch.from_numpy(exp_values)
 
     pso = PSO(f_fit, params)
@@ -158,7 +161,6 @@ def main():
     graph_cost = fig.add_subplot(222, frameon=False)
     func1  = fig.add_subplot(223, frameon=False)
     func2  = fig.add_subplot(224, frameon=False)
-
     plt.show(block=False)
 
     for i in range(100):
@@ -182,21 +184,18 @@ def main():
 
         func1.cla()
         func1.plot(pso.y[:,0])
-        # func1.plot(pso.pbg_y_hat[:,0],'--')
-        func1.plot(pso.y[:,1])
-        # func1.plot(pso.pbg_y_hat[:,1],'--')
-        func1.legend(['y0','y0_hat','y1','y1_hat'])
+        func1.plot(pso.pbg_y_hat[:,0],'--')
+        func1.legend(['y0','y0_hat'])
 
         func2.cla()
-        func2.plot(pso.y[:,0],pso.y[:,1])
-        # func2.plot(pso.pbg_y_hat[:,0], pso.pbg_y_hat[:,1],'--')
-        func2.legend(['y','y_hat'])
-        func2.set_xlabel('y')
-        func2.set_ylabel('dot_y')
+        func2.plot(pso.y[:,2])
+        func2.plot(pso.pbg_y_hat[:,2],'--')
+        func2.legend(['y2','y2_hat'])
 
         plt.draw()
         plt.pause(0.01)
-        # pso.run()
+
+        pso.run()
 
 if __name__ == "__main__":
     main()

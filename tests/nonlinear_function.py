@@ -8,7 +8,7 @@ class EqSystem(Model):
         super(EqSystem, self).__init__(params)
         self._params = params
 
-    def model(self, t, x):
+    def model(self, t, y, *args):
         def delta(vel):
             if abs(vel) > 0.1:
                 d = 5.0
@@ -22,10 +22,10 @@ class EqSystem(Model):
         m    = 1
         wn   = np.sqrt(k[0]/m)
         zeta = k[1]/(2*m*wn)
-        dx = torch.zeros(len(self.x0),)
-        dx[0] = x[1]
-        dx[1] = -2 * zeta * wn * delta(x[1])*x[1] - wn ** 2 * x[0] + 4*np.sin(2*np.pi*k[2]*t)
-        return dx
+        dy = torch.zeros(len(self.x0),)
+        dy[0] = y[1]
+        dy[1] = -2 * zeta * wn * delta(y[1])*y[1] - wn ** 2 * y[0] + 4*np.sin(2*np.pi*k[2]*t)
+        return dy
 
 def suface_plot(params):
     f_fit = EqSystem(params)
@@ -53,14 +53,16 @@ def main():
                             'upBound': [10, 10, 2],
                             'maxVelocity': 5, 
                             'minVelocity': -5,
-                            'nPop': 15,
+                            'nPop': 10,
                             'nVar': 3,
-                            'social_weight': 2,
-                            'cognitive_weight': 2,
-                            'w': 0.9,
+                            'social_weight': 1,
+                            'cognitive_weight': 1,
+                            'w': 0.99,
                             'beta': 0.1,
                             'w_damping': 0.99},
                 'dyn_system': {'model_path': '',
+                                'external': None,
+                                'state_mask' : [True, True],
                                 'x0': [0., 0.],
                                 't': [0,6,1000]
                                 }
